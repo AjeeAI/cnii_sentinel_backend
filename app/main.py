@@ -66,6 +66,10 @@ def get_db():
     finally:
         db.close()
 
+
+@app.get("/health")
+async def health_check():
+    return {"status": "online", "message": "Sentinel Brain is active"}
 # --- 1. DASHBOARD ENDPOINT (Refactored) ---
 @app.post("/patrol", response_model=PatrolResponse)
 def start_patrol_endpoint(request: PatrolRequest):
