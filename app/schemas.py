@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-# --- 1. The Asset Registry & Safety Net ---
+# --- Constants ---
 CRITICAL_ZONES = [
     "Lagos-Ibadan Expressway",
     "Lagos-Abeokuta Expressway",
@@ -13,8 +13,6 @@ CRITICAL_ZONES = [
     "Kano-Zaria Road"
 ]
 
-# Hardcoded center-points (Lat, Lng) for each zone
-# These are used if specific street geocoding fails.
 ZONE_DEFAULTS = {
     "Lagos-Ibadan Expressway": (6.9530, 3.6157),
     "Lagos-Abeokuta Expressway": (6.7020, 3.2570),
@@ -31,7 +29,7 @@ class InfrastructureRisk(BaseModel):
     risk_level: str = Field(description="Low, Medium, or High")
     location_identified: str = Field(description="Street or area name found in text")
     threat_type: str = Field(description="e.g., Excavation, Road Grading, Drainage Works")
-    recommended_action: str = Field(description="Specific directive for Airtel/9mobile patrol teams")
+    recommended_action: str = Field(description="Specific directive for patrol teams")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -44,3 +42,7 @@ class PatrolResponse(BaseModel):
 
 class PatrolRequest(BaseModel):
     extra_zone: Optional[str] = None
+    
+# --- NEW: Chat Request Model ---
+class ChatRequest(BaseModel):
+    message: str

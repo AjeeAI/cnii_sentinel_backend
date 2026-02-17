@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from database import engine
+from backend.app.database import engine
 
 def add_columns():
     with engine.connect() as conn:
