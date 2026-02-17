@@ -1,0 +1,16 @@
+apscheduler==3.11.2
+backend==0.2.4.1
+fastapi==0.129.0
+geopy==2.4.1
+langchain_core==1.2.13
+langchain_openai==1.1.9
+langgraph==1.0.8
+openai==2.21.0
+pydantic==2.12.5
+python-dotenv==1.2.1
+pytz==2025.2
+SQLAlchemy==2.0.46
+sse_starlette==3.2.0
+tavily==1.1.0
+uvicorn==0.41.0
+pymysql

@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from langchain_core.tools import tool
 from tavily import TavilyClient
 from openai import OpenAI
@@ -39,7 +39,7 @@ def analyze_with_llm(zone_name: str, search_context: str) -> List[Infrastructure
         return []
 
 @tool
-def perform_patrol_sweep(extra_zone: str = None) -> dict:
+def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
     """
     Scans critical infrastructure zones for construction risks using Tavily Search.
     Returns a dictionary with 'summary' and 'risks'.

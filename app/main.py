@@ -1,21 +1,54 @@
+import os
 import json
 import traceback
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 from langchain_core.messages import HumanMessage
-
+from apscheduler.schedulers.background import BackgroundScheduler
+from pytz import timezone
 # --- MODULAR IMPORTS ---
-from app.database import SessionLocal, init_db, PatrolReport, RiskRecord
-from app.schemas import ChatRequest, PatrolResponse, PatrolRequest, InfrastructureRisk
-from app.tools import perform_patrol_sweep
+from app.database import SessionLocal, init_db, PatrolReport
+from app.schemas import PatrolResponse, PatrolRequest, InfrastructureRisk, ChatRequest
 from app.agent import agent 
+# NEW: Import the task logic
+from app.tasks import run_patrol_and_save
 
 load_dotenv()
 
-app = FastAPI(title="CNII Sentinel API", version="2.0")
+# --- SCHEDULER SETUP ---
+scheduler = BackgroundScheduler()
+
+def configure_scheduler():
+    env_mode = os.getenv("ENVIRONMENT", "TESTING").upper()
+    
+    # Define Nigeria Time
+    lagos_time = timezone('Africa/Lagos')
+    
+    if env_mode == "PRODUCTION":
+        # Pass the timezone to the cron trigger
+        scheduler.add_job(run_patrol_and_save, 'cron', hour=7, minute=0, timezone=lagos_time)
+        print("🕒 Scheduler: PRODUCTION Mode (Daily at 7:00 AM Lagos Time)")
+    else:
+        scheduler.add_job(run_patrol_and_save, 'interval', minutes=10)
+        print("🕒 Scheduler: TESTING Mode (Every 10 minutes)")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- STARTUP ---
+    print("🚀 Sentinel System Starting...")
+    init_db()
+    configure_scheduler()
+    scheduler.start()
+    yield
+    # --- SHUTDOWN ---
+    print("🛑 Sentinel System Shutting Down...")
+    scheduler.shutdown()
+
+app = FastAPI(title="CNII Sentinel API", version="2.1", lifespan=lifespan)
 
 # CORS Setup
 app.add_middleware(
@@ -26,11 +59,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database Startup
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
 def get_db():
     db = SessionLocal()
     try:
@@ -38,38 +66,13 @@ def get_db():
     finally:
         db.close()
 
-# --- 1. DASHBOARD ENDPOINT (Direct Tool Usage) ---
-# We use the tool logic DIRECTLY here (skipping the agent) to ensure strict JSON for Flutter
+# --- 1. DASHBOARD ENDPOINT (Refactored) ---
 @app.post("/patrol", response_model=PatrolResponse)
 def start_patrol_endpoint(request: PatrolRequest):
     try:
-        # invoke() calls the tool function defined in tools.py
-        result = perform_patrol_sweep.invoke({"extra_zone": request.extra_zone})
-        
-        # Save to DB
-        db = SessionLocal()
-        try:
-            new_report = PatrolReport(summary=result["summary"])
-            db.add(new_report)
-            db.flush()
-
-            for risk in result["risks"]:
-                db_risk = RiskRecord(
-                    report_id=new_report.id,
-                    risk_level=risk.risk_level,
-                    location=risk.location_identified,
-                    latitude=risk.latitude,
-                    longitude=risk.longitude,
-                    threat_type=risk.threat_type,
-                    recommended_action=risk.recommended_action
-                )
-                db.add(db_risk)
-            db.commit()
-        finally:
-            db.close()
-
-        return PatrolResponse(summary=result["summary"], risks=result["risks"])
-
+        # REFACTOR: Just call the shared task function!
+        # This keeps your code DRY (Don't Repeat Yourself)
+        return run_patrol_and_save(request.extra_zone)
     except Exception as e:
         print(f"CRASH: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -81,6 +84,22 @@ def get_latest_report(db: Session = Depends(get_db)):
     if not latest_report:
         raise HTTPException(status_code=404, detail="No data.")
 
+    # 1. Define Priority Map
+    priority_map = {
+        "High": 3, 
+        "Medium": 2, 
+        "Low": 1
+    }
+
+    # 2. Sort risks (High -> Low)
+    # We use .get(..., 0) to handle unexpected values safely
+    sorted_db_risks = sorted(
+        latest_report.risks, 
+        key=lambda r: priority_map.get(r.risk_level, 0), 
+        reverse=True
+    )
+
+    # 3. Format for Response
     formatted_risks = [
         InfrastructureRisk(
             risk_level=r.risk_level,
@@ -89,24 +108,27 @@ def get_latest_report(db: Session = Depends(get_db)):
             recommended_action=r.recommended_action,
             latitude=r.latitude,
             longitude=r.longitude
-        ) for r in latest_report.risks
+        ) for r in sorted_db_risks
     ]
+    
     return PatrolResponse(summary=latest_report.summary, risks=formatted_risks)
 
-# --- 3. CHAT ENDPOINT (Agentic) ---
-# This allows you to chat with the system: "Any risks in Lagos?"
+# --- 3. CHAT ENDPOINT ---
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
-    message = request.message
+    message = request.message 
     
     async def generate():
-        async for chunk in agent.astream({"messages": [HumanMessage(content=message)]}, stream_mode="messages"):
-            if isinstance(chunk, tuple) and len(chunk) >= 1:
-                msg = chunk[0]
-                if hasattr(msg, "content") and msg.content:
-                     # Filter out tool calls, stream only answer
-                    if not (hasattr(msg, "tool_calls") and msg.tool_calls):
-                        yield json.dumps({"token": msg.content}) + "\n"
+        try:
+            async for chunk in agent.astream({"messages": [HumanMessage(content=message)]}, stream_mode="messages"):
+                if isinstance(chunk, tuple) and len(chunk) >= 1:
+                    msg = chunk[0]
+                    if hasattr(msg, "content") and msg.content:
+                        if not (hasattr(msg, "tool_calls") and msg.tool_calls):
+                            yield json.dumps({"token": msg.content}) + "\n"
+        except Exception as e:
+            print(f"Streaming Error: {e}")
+            yield json.dumps({"error": str(e)}) + "\n"
 
     return EventSourceResponse(generate())
 
