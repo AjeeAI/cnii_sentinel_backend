@@ -120,10 +120,15 @@ async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
             response = await tavily_client.search(
                 query=f"{zone} Nigeria infrastructure project risk fiber optic", 
                 topic="news", 
-                max_results=5,
+                max_results=10,
                 search_depth="advanced",
                 country="Nigeria",
-                include_domains=["vanguardngr.com", "punchng.com", "dailytrust.com", "thenationonlineng.net", "premiumtimesng.com"],
+                include_domains=[
+                    "vanguardngr.com", "punchng.com", "dailytrust.com", 
+                    "thenationonlineng.net", "premiumtimesng.com",
+                    "techcabal.com", "nairametrics.com", "channelstv.com",
+                    "thecable.ng", "saharareporters.com"
+                ],
                 exclude_domains=["bbc.co.uk", "dailymail.co.uk", "nytimes.com"]
             )
             
