@@ -46,6 +46,10 @@ async def analyze_with_llm(zone_name: str, search_context: str) -> List[Infrastr
                         "Identify road construction, dredging, or excavation projects in NIGERIA "
                         "that pose a physical threat to fiber optic backbone cables.\n\n"
                         
+                        "STRICT RULE: For every risk identified, you MUST provide the 'URL' of the "
+                        "source where you found that specific information. Do not guess; use the "
+                        "provided URL labels in the context."
+
                         "### STRICT GEOGRAPHIC RULES\n"
                         "1. ONLY process data related to Nigeria (Lagos, Abuja, PH, etc.).\n"
                         "2. IMMEDIATELY DISCARD any results from the UK, USA, or other countries.\n"
