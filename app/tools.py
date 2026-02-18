@@ -50,8 +50,7 @@ async def analyze_with_llm(zone_name: str, search_context: str) -> List[Infrastr
     
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-print(f"📢 Telegram configured for chat ID: {CHAT_ID}")
-print(f"📢 Telegram Bot Token: {TELEGRAM_TOKEN}")
+
 
 async def send_telegram_alert(risk_level, location, summary):
     # Filter is already handled by the caller (risk_score >= 7)

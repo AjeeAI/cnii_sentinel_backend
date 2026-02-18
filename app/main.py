@@ -36,7 +36,7 @@ def configure_scheduler():
         scheduler.add_job(run_patrol_and_save, 'cron', hour=7, minute=0, timezone=lagos_time)
         print("🕒 Scheduler: PRODUCTION Mode (Daily at 7:00 AM Lagos Time)")
     else:
-        scheduler.add_job(run_patrol_and_save, 'interval', minutes=1)
+        scheduler.add_job(run_patrol_and_save, 'interval', minutes=10)
         print("🕒 Scheduler: TESTING Mode (Every 10 minutes)")
 
 @asynccontextmanager
@@ -108,17 +108,17 @@ def get_latest_report(db: Session = Depends(get_db)):
 
     # 3. Format for Response
     formatted_risks = [
-        InfrastructureRisk(
-            risk_level=r.risk_level,
-            risk_score=r.risk_score,      # <--- ADD THIS
-            summary=r.summary,            # <--- ADD THIS
-            location_identified=r.location,
-            threat_type=r.threat_type,
-            recommended_action=r.recommended_action,
-            latitude=r.latitude,
-            longitude=r.longitude
-        ) for r in sorted_db_risks
-    ]
+    InfrastructureRisk(
+        risk_level=r.risk_level,
+        risk_score=r.risk_score if r.risk_score is not None else 0, # Fallback to 0
+        summary=r.summary if r.summary is not None else "No summary available", # Fallback string
+        location_identified=r.location,
+        threat_type=r.threat_type,
+        recommended_action=r.recommended_action,
+        latitude=r.latitude,
+        longitude=r.longitude
+    ) for r in sorted_db_risks
+]
     
     return PatrolResponse(summary=latest_report.summary, risks=formatted_risks)
 
