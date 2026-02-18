@@ -75,11 +75,11 @@ async def health_check():
     return {"status": "online", "message": "Sentinel Brain is active"}
 # --- 1. DASHBOARD ENDPOINT (Refactored) ---
 @app.post("/patrol", response_model=PatrolResponse)
-def start_patrol_endpoint(request: PatrolRequest):
+async def start_patrol_endpoint(request: PatrolRequest):
     try:
         # REFACTOR: Just call the shared task function!
         # This keeps your code DRY (Don't Repeat Yourself)
-        return run_patrol_and_save(request.extra_zone)
+        return await run_patrol_and_save(request.extra_zone)
     except Exception as e:
         print(f"CRASH: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
