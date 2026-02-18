@@ -123,17 +123,20 @@ async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
             )
             
             results = response.get('results', [])
-            search_context = "\n".join([r['content'] for r in results])
-            
+            search_context = ""
+            for i, r in enumerate(results):
+                # We label each source so the AI can reference it
+                search_context += f"SOURCE_ID: {i}\nURL: {r['url']}\nCONTENT: {r['content']}\n\n"
+
             if search_context:
-                # 2. Analyze (Awaited)
+                # Now the AI sees the URLs tied to the content
                 zone_risks = await analyze_with_llm(zone, search_context)
                 
                 for risk in zone_risks:
                     # 📍 Capture the source URL for credibility
                     # We take the first result's URL as the primary reference
-                    if results:
-                        risk.source_url = results[0].get('url', "")
+                    # if results:
+                    #     risk.source_url = results[0].get('url', "")
 
                     # 3. Geocode the location
                     lat, lng = resolve_coordinates(risk.location_identified, zone)
