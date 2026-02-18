@@ -116,7 +116,8 @@ def get_latest_report(db: Session = Depends(get_db)):
         threat_type=r.threat_type,
         recommended_action=r.recommended_action,
         latitude=r.latitude,
-        longitude=r.longitude
+        longitude=r.longitude,
+        source_url=r.source_url
     ) for r in sorted_db_risks
 ]
     
