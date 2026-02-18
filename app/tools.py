@@ -3,13 +3,16 @@ from typing import List, Optional
 import httpx
 from langchain_core.tools import tool
 from tavily import TavilyClient
+
+from tavily import AsyncTavilyClient
 from openai import OpenAI
 from openai import AsyncOpenAI
 from geopy.geocoders import Nominatim
 from app.schemas import CRITICAL_ZONES, ZONE_DEFAULTS, ZoneAnalysisResult, InfrastructureRisk
 
 # Initialize Clients
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+# tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+tavily_client = AsyncTavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 # openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 geolocator = Nominatim(user_agent="cnii_sentinel_patrol")
@@ -34,9 +37,24 @@ async def analyze_with_llm(zone_name: str, search_context: str) -> List[Infrastr
             messages=[
                 {
                     "role": "system", 
-                    "content": (
-                        "You are the CNII Sentinel AI. Your mission is to identify road construction "
-                        "projects that pose a direct physical threat to fiber optic cables."
+                   "content": (
+                        "### ROLE\n"
+                        "You are a Senior Nigerian Infrastructure Security Analyst specializing in "
+                        "Critical National Information Infrastructure (CNII).\n\n"
+                        
+                        "### MISSION\n"
+                        "Identify road construction, dredging, or excavation projects in NIGERIA "
+                        "that pose a physical threat to fiber optic backbone cables.\n\n"
+                        
+                        "### STRICT GEOGRAPHIC RULES\n"
+                        "1. ONLY process data related to Nigeria (Lagos, Abuja, PH, etc.).\n"
+                        "2. IMMEDIATELY DISCARD any results from the UK, USA, or other countries.\n"
+                        "3. If you see 'Melton Mowbray' or 'Leicestershire', ignore it. It is out of scope.\n"
+                        "4. If no Nigerian risks are found in the text, return an empty list: [].\n\n"
+                        
+                        "### ANALYSIS CRITERIA\n"
+                        "Look for: 'road expansion', 'drainage works', 'bridge construction', or 'digging' "
+                        "in proximity to known telecommunications routes."
                     )
                 },
                 {"role": "user", "content": f"Zone: {zone_name}\n\nSearch Data:\n{search_context}"}
@@ -80,7 +98,7 @@ async def send_telegram_alert(risk_level, location, summary):
 @tool
 async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
     """
-    Scans critical infrastructure zones and triggers Telegram alerts for High Risks.
+    Scans critical infrastructure zones using Async Tavily and triggers Telegram alerts.
     """
     all_risks = []
     zones_scanned = 0
@@ -89,33 +107,43 @@ async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
     if extra_zone and extra_zone.lower() != "string":
         targets.append(extra_zone)
 
-    print(f"🚀 Starting Patrol Sweep on {len(targets)} zones...")
+    print(f"🚀 Starting Async Patrol Sweep on {len(targets)} zones...")
 
     for zone in targets:
         try:
-            # 1. Search (Tavily)
-            response = tavily_client.search(
-                query=f"{zone} road construction news Nigeria", 
+            # 1. ⚡ ASYNC SEARCH (No longer blocking)
+            # Make sure 'tavily_client' is initialized as AsyncTavilyClient()
+            response = await tavily_client.search(
+                query=f"{zone} Nigeria infrastructure project risk fiber optic", 
                 topic="news", 
-                max_results=3
+                max_results=5,
+                search_depth="advanced",
+                country="Nigeria",
+                exclude_domains=["bbc.co.uk", "dailymail.co.uk", "nytimes.com"]
             )
+            
             results = response.get('results', [])
             search_context = "\n".join([r['content'] for r in results])
             
             if search_context:
-                # 2. Analyze (OpenAI)
+                # 2. Analyze (Awaited)
                 zone_risks = await analyze_with_llm(zone, search_context)
                 
                 for risk in zone_risks:
-                    # 1. Geocode the location
+                    # 📍 Capture the source URL for credibility
+                    # We take the first result's URL as the primary reference
+                    if results:
+                        risk.source_url = results[0].get('url', "")
+
+                    # 3. Geocode the location
                     lat, lng = resolve_coordinates(risk.location_identified, zone)
                     risk.latitude = lat
                     risk.longitude = lng
                     all_risks.append(risk)
 
-                    # 2. 🔥 THE TRIGGER: Now 'risk.risk_score' exists!
+                    # 4. 🔥 THE TRIGGER
                     if risk.risk_score >= 7:
-                        print(f"🚨 ALERT: High Risk detected at {risk.location_identified} ({risk.risk_score}/10)")
+                        print(f"🚨 ALERT: High Risk at {risk.location_identified} ({risk.risk_score}/10)")
                         await send_telegram_alert(
                             risk_level=f"{risk.risk_score}/10",
                             location=risk.location_identified,

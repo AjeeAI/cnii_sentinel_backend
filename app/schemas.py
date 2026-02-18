@@ -32,6 +32,7 @@ class InfrastructureRisk(BaseModel):
     location_identified: str = Field(description="Street or area name found in text")
     threat_type: str = Field(description="e.g., Excavation, Road Grading, Drainage Works")
     summary: str = Field(description="Brief tactical summary of the threat")
+    source_url: Optional[str] = Field(None, description="The news article URL")
     recommended_action: str = Field(description="Specific directive for patrol teams")
     latitude: Optional[float] = None
     longitude: Optional[float] = None

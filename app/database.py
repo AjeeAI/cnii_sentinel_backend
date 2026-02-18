@@ -58,6 +58,7 @@ class RiskRecord(Base):
     threat_type = Column(String(255))
     recommended_action = Column(Text)
     summary = Column(Text)
+    source_url = Column(String(500), nullable=True)
     report = relationship("PatrolReport", back_populates="risks")
 
 # Create tables

@@ -33,6 +33,7 @@ async def run_patrol_and_save(extra_zone: str = None) -> PatrolResponse:
                     location=risk.location_identified,
                     latitude=risk.latitude,
                     longitude=risk.longitude,
+                    source_url=risk.source_url,
                     threat_type=risk.threat_type,
                     recommended_action=risk.recommended_action
                 )

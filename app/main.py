@@ -141,7 +141,9 @@ async def chat_endpoint(request: ChatRequest):
 
     return EventSourceResponse(generate())
 
-
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("🛑 Sentinel Connections Closed.")
 
 if __name__ == "__main__":
     import uvicorn
