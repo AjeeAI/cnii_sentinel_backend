@@ -123,6 +123,7 @@ async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
                 max_results=5,
                 search_depth="advanced",
                 country="Nigeria",
+                include_domains=["vanguardngr.com", "punchng.com", "dailytrust.com", "thenationonlineng.net", "premiumtimesng.com"],
                 exclude_domains=["bbc.co.uk", "dailymail.co.uk", "nytimes.com"]
             )
             
