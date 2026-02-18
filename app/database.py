@@ -48,6 +48,7 @@ class RiskRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     report_id = Column(Integer, ForeignKey("patrol_reports.id"))
     risk_level = Column(String(50))
+    risk_score = Column(Integer)
     location = Column(String(255))
     
     # --- NEW COLUMNS ---
@@ -56,7 +57,7 @@ class RiskRecord(Base):
     
     threat_type = Column(String(255))
     recommended_action = Column(Text)
-    
+    summary = Column(Text)
     report = relationship("PatrolReport", back_populates="risks")
 
 # Create tables

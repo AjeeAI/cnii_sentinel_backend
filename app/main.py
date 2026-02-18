@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 from langchain_core.messages import HumanMessage
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pytz import timezone
+import httpx
+
 # --- MODULAR IMPORTS ---
 from app.database import SessionLocal, init_db, PatrolReport
 from app.schemas import PatrolResponse, PatrolRequest, InfrastructureRisk, ChatRequest
@@ -20,8 +23,8 @@ from app.tasks import run_patrol_and_save
 load_dotenv()
 
 # --- SCHEDULER SETUP ---
-scheduler = BackgroundScheduler()
-
+# scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 def configure_scheduler():
     env_mode = os.getenv("ENVIRONMENT", "TESTING").upper()
     
@@ -33,7 +36,7 @@ def configure_scheduler():
         scheduler.add_job(run_patrol_and_save, 'cron', hour=7, minute=0, timezone=lagos_time)
         print("🕒 Scheduler: PRODUCTION Mode (Daily at 7:00 AM Lagos Time)")
     else:
-        scheduler.add_job(run_patrol_and_save, 'interval', minutes=10)
+        scheduler.add_job(run_patrol_and_save, 'interval', minutes=1)
         print("🕒 Scheduler: TESTING Mode (Every 10 minutes)")
 
 @asynccontextmanager
@@ -135,6 +138,8 @@ async def chat_endpoint(request: ChatRequest):
             yield json.dumps({"error": str(e)}) + "\n"
 
     return EventSourceResponse(generate())
+
+
 
 if __name__ == "__main__":
     import uvicorn
