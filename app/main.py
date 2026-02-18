@@ -110,6 +110,8 @@ def get_latest_report(db: Session = Depends(get_db)):
     formatted_risks = [
         InfrastructureRisk(
             risk_level=r.risk_level,
+            risk_score=r.risk_score,      # <--- ADD THIS
+            summary=r.summary,            # <--- ADD THIS
             location_identified=r.location,
             threat_type=r.threat_type,
             recommended_action=r.recommended_action,
