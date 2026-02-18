@@ -27,7 +27,9 @@ async def run_patrol_and_save(extra_zone: str = None) -> PatrolResponse:
             for risk in result["risks"]:
                 db_risk = RiskRecord(
                     report_id=new_report.id,
-                    risk_level=risk.risk_score, # Ensure this matches your column name
+                    risk_level=risk.risk_level,  # Corrected: Save string level here
+                    risk_score=risk.risk_score,  # Corrected: Save integer score here
+                    summary=risk.summary,        # Corrected: Save the summary!
                     location=risk.location_identified,
                     latitude=risk.latitude,
                     longitude=risk.longitude,
