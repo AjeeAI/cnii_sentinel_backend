@@ -3,7 +3,7 @@ import json
 import traceback
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
@@ -19,6 +19,7 @@ from app.schemas import PatrolResponse, PatrolRequest, InfrastructureRisk, ChatR
 from app.agent import agent 
 # NEW: Import the task logic
 from app.tasks import run_patrol_and_save
+from app.tools import perform_patrol_sweep
 
 load_dotenv()
 
@@ -74,6 +75,24 @@ def get_db():
 async def health_check():
     return {"status": "online", "message": "Sentinel Brain is active"}
 # --- 1. DASHBOARD ENDPOINT (Refactored) ---
+
+@app.get("/patrol/trigger-7am")
+@app.get("/patrol/trigger-7am")
+async def trigger_morning_patrol(background_tasks: BackgroundTasks):
+    """
+    Tactical Trigger: This endpoint is called by an external cron job 
+    to ensure the patrol runs even if the server just woke up.
+    """
+    # background_tasks.add_task ensures the API responds immediately 
+    # while the AI works in the background
+    background_tasks.add_task(run_patrol_and_save)
+    
+    return {
+        "status": "Tactical Sweep Initiated",
+        "timestamp": "07:00 WAT",
+        "mode": "Background Execution"
+    }
+
 @app.post("/patrol", response_model=PatrolResponse)
 async def start_patrol_endpoint(request: PatrolRequest):
     try:
