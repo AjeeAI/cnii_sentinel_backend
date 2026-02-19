@@ -99,73 +99,68 @@ async def send_telegram_alert(risk_level, location, summary):
             print(f"✅ Telegram Alert Sent to {CHAT_ID}")
 
 
+async def fetch_clean_content(url: str) -> str:
+    """The 'Sniper': Fetches clean, LLM-ready text using Jina Reader."""
+    try:
+        async with httpx.AsyncClient() as client:
+            # Prepending r.jina.ai/ extracts the main content and strips sidebars
+            response = await client.get(f"https://r.jina.ai/{url}", timeout=10)
+            return response.text if response.status_code == 200 else ""
+    except Exception:
+        return ""
+
 @tool
 async def perform_patrol_sweep(extra_zone: Optional[str] = None) -> dict:
     """
-    Scans critical infrastructure zones using Async Tavily and triggers Telegram alerts.
+    Scans critical infrastructure zones using Tavily search and cleans article content 
+    with Jina Reader to identify fiber optic risks in Nigeria.
     """
     all_risks = []
-    zones_scanned = 0
-    
     targets = CRITICAL_ZONES.copy()
     if extra_zone and extra_zone.lower() != "string":
         targets.append(extra_zone)
 
-    print(f"🚀 Starting Async Patrol Sweep on {len(targets)} zones...")
-
     for zone in targets:
         try:
-            # 1. ⚡ ASYNC SEARCH (No longer blocking)
-            # Make sure 'tavily_client' is initialized as AsyncTavilyClient()
-            response = await tavily_client.search(
-                query=f"{zone} Nigeria infrastructure project risk fiber optic", 
-                topic="news", 
-                max_results=10,
-                search_depth="advanced",
-                country="Nigeria",
-                
-                exclude_domains=["bbc.co.uk", "dailymail.co.uk", "nytimes.com"]
+            # STEP 1: The 'Scout' (Tavily find URLs)
+            search = await tavily_client.search(
+                query=f'"{zone}" Nigeria road construction fiber optic damage', 
+                topic="news", max_results=3, search_depth="advanced"
             )
             
-            results = response.get('results', [])
+            results = search.get('results', [])
             search_context = ""
+            
             for i, r in enumerate(results):
-                # We label each source so the AI can reference it
-                search_context += f"SOURCE_ID: {i}\nURL: {r['url']}\nCONTENT: {r['content']}\n\n"
+                # STEP 2: The 'Sniper' (Fetch full clean text)
+                clean_text = await fetch_clean_content(r['url'])
+                content_to_use = clean_text if len(clean_text) > 200 else r['content']
+                
+                # STEP 3: Labeled Context for the AI
+                search_context += (
+                    f"--- SOURCE [{i}] ---\n"
+                    f"TITLE: {r.get('title')}\n"
+                    f"DATE: {r.get('published_date')}\n"
+                    f"URL: {r['url']}\n"
+                    f"CONTENT: {content_to_use}\n\n"
+                )
 
             if search_context:
-                # Now the AI sees the URLs tied to the content
                 zone_risks = await analyze_with_llm(zone, search_context)
-                
                 for risk in zone_risks:
-                    # 📍 Capture the source URL for credibility
-                    # We take the first result's URL as the primary reference
-                    # if results:
-                    #     risk.source_url = results[0].get('url', "")
-
-                    # 3. Geocode the location
                     lat, lng = resolve_coordinates(risk.location_identified, zone)
-                    risk.latitude = lat
-                    risk.longitude = lng
+                    risk.latitude, risk.longitude = lat, lng
                     all_risks.append(risk)
-
-                    # 4. 🔥 THE TRIGGER
+                    
                     if risk.risk_score >= 7:
-                        print(f"🚨 ALERT: High Risk at {risk.location_identified} ({risk.risk_score}/10)")
                         await send_telegram_alert(
                             risk_level=f"{risk.risk_score}/10",
                             location=risk.location_identified,
                             summary=risk.summary
                         )
-                    
-            zones_scanned += 1
         except Exception as e:
             print(f"❌ Error scanning {zone}: {e}")
-            continue
-
-    return {
-        "summary": f"Sweep complete. Scanned {zones_scanned} zones. Identified {len(all_risks)} risks.",
-        "risks": all_risks
-    }
+    
+    return {"summary": f"Sweep complete. Identified {len(all_risks)} risks.", "risks": all_risks}
 # Export tools list for the agent
 all_tools = [perform_patrol_sweep]

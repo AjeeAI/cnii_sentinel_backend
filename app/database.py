@@ -59,6 +59,10 @@ class RiskRecord(Base):
     recommended_action = Column(Text)
     summary = Column(Text)
     source_url = Column(String(500), nullable=True)
+    
+    # 🆕 New tactical metadata columns
+    source_title = Column(String(255), nullable=True)
+    published_date = Column(String(50), nullable=True)
     report = relationship("PatrolReport", back_populates="risks")
 
 # Create tables

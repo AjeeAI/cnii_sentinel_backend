@@ -26,13 +26,17 @@ ZONE_DEFAULTS = {
 
 # --- Models ---
 class InfrastructureRisk(BaseModel):
-    # Keeping both 'risk_level' and 'risk_score' for flexibility in reporting and alerting logic
     risk_level: str = Field(description="Low, Medium, or High")
     risk_score: int = Field(description="Risk level from 0 to 10 (10 being critical)")
     location_identified: str = Field(description="Street or area name found in text")
     threat_type: str = Field(description="e.g., Excavation, Road Grading, Drainage Works")
     summary: str = Field(description="Brief tactical summary of the threat")
+    
+    # 🆕 Metadata fields for professional verification
     source_url: Optional[str] = Field(None, description="The news article URL")
+    source_title: Optional[str] = Field(None, description="The headline of the article")
+    published_date: Optional[str] = Field(None, description="The date the article was published")
+    
     recommended_action: str = Field(description="Specific directive for patrol teams")
     latitude: Optional[float] = None
     longitude: Optional[float] = None

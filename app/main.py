@@ -136,7 +136,9 @@ def get_latest_report(db: Session = Depends(get_db)):
         recommended_action=r.recommended_action,
         latitude=r.latitude,
         longitude=r.longitude,
-        source_url=r.source_url
+        source_url=r.source_url,
+        source_title=r.source_title,   # 🆕 Pass to Flutter
+        published_date=r.published_date # 🆕 Pass to Flutter
     ) for r in sorted_db_risks
 ]
     
